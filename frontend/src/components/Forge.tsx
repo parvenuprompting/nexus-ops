@@ -12,10 +12,9 @@ declare global {
 export default function Forge() {
     const [dir, setDir] = useState<string>('');
     const [status, setStatus] = useState<'idle' | 'scanning' | 'processing' | 'complete'>('idle');
-    const [stats, setStats] = useState({ total: 0, processed: 0 }); // Note: processed isn't strictly tracked individually in app.go yet, but we can simulate
+    const [stats, setStats] = useState({ total: 0, processed: 0 });
 
     useEffect(() => {
-        // Listen for events
         const unsubError = EventsOn('processing:error', (err: string) => {
             alert('Error: ' + err);
             setStatus('idle');
@@ -31,12 +30,7 @@ export default function Forge() {
             setStats(s => ({ ...s, processed: s.total }));
         });
 
-        // We can listen to metrics update to infer progress if we wanted, 
-        // but for now let's keep it simple or implement better progress tracking later.
-
         return () => {
-            // Cleanup if possible (Wails JS runtime doesn't expose easy unsub in v2 without storing the cancel function returned by EventsOn)
-            // Actually eventsOn returns a function to cancel.
             unsubError();
             unsubStart();
             unsubComplete();
@@ -52,66 +46,86 @@ export default function Forge() {
         if (!dir) return;
         setStatus('scanning');
         await StartProcessing(dir);
-        // Event listeners handle the rest
     };
 
     return (
-        <div className="glass-panel w-full max-w-2xl mx-auto p-8 flex flex-col items-center">
-            <h2 className="text-2xl font-bold mb-8">Forge: Image Resizer</h2>
+        <div className="h-full w-full flex items-center justify-center p-8">
+            {/* Main Glass Card */}
+            <div className="w-full max-w-lg bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg p-1 shadow-2xl">
+                {/* Header */}
+                <div className="border-b border-white/5 p-4 bg-white/5 rounded-t-lg">
+                    <h2 className="text-center font-bold text-gray-200 tracking-wider">Forge: Image Resizer</h2>
+                </div>
 
-            <div className="w-full space-y-6">
-                {/* Directory Selection */}
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm text-gray-400">Input Directory</label>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={dir}
-                            readOnly
-                            placeholder="No directory selected"
-                            className="bg-black/30 border border-cyber-border rounded px-4 py-2 flex-1 text-gray-300 focus:outline-none focus:border-cyber-primary"
-                        />
-                        <button
-                            onClick={handleSelect}
-                            className="bg-cyber-card hover:bg-white/10 border border-cyber-border px-4 py-2 rounded transition-colors"
-                        >
-                            Browse
-                        </button>
+                {/* Content */}
+                <div className="p-8 flex flex-col gap-6">
+
+                    {/* Directory Selection */}
+                    <button
+                        onClick={handleSelect}
+                        className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 font-medium rounded transition-all active:scale-[0.98] group"
+                    >
+                        {dir ? (
+                            <span className="text-cyber-primary font-mono text-sm break-all">{dir}</span>
+                        ) : (
+                            <span className="group-hover:text-white transition-colors">Select Input Folder</span>
+                        )}
+                    </button>
+
+                    {/* Status Text */}
+                    <div className="text-center space-y-1">
+                        {!dir && <p className="text-sm text-gray-500 italic">No directory selected</p>}
                     </div>
-                </div>
 
-                {/* Progress Bar */}
-                <div className="h-4 bg-black/50 rounded-full overflow-hidden border border-cyber-border/50 relative">
-                    <div
-                        className={`h-full bg-cyber-primary shadow-[0_0_10px_#00f2ff] transition-all duration-500 ${status === 'scanning' ? 'w-full animate-pulse opacity-50' : ''
-                            }`}
-                        style={{
-                            width: status === 'processing' || status === 'complete'
-                                ? '100%'
-                                : status === 'scanning' ? '100%' : '0%'
-                        }}
-                    ></div>
-                    {/* If we had granular progress, we'd use width % */}
-                </div>
+                    {/* Action Button */}
+                    <button
+                        onClick={handleStart}
+                        disabled={!dir || status === 'scanning' || status === 'processing'}
+                        className={`
+                            w-full py-3 rounded text-sm font-bold tracking-widest uppercase transition-all duration-300 border
+                            ${!dir || status !== 'idle' && status !== 'complete'
+                                ? 'bg-black/20 text-gray-700 border-transparent cursor-not-allowed'
+                                : 'bg-cyber-primary/10 text-cyber-primary border-cyber-primary/50 hover:bg-cyber-primary hover:text-black shadow-[0_0_20px_rgba(0,242,255,0.1)] hover:shadow-[0_0_20px_rgba(0,242,255,0.4)]'
+                            }
+                        `}
+                    >
+                        {status === 'scanning' ? 'Scanning...' : status === 'processing' ? 'Processing...' : 'Start Processing'}
+                    </button>
 
-                <div className="text-center text-sm font-mono text-cyber-primary">
-                    {status === 'idle' && 'Ready'}
-                    {status === 'scanning' && 'Scanning...'}
-                    {status === 'processing' && `Processing... (${stats.total} found)`}
-                    {status === 'complete' && 'Processing Complete! Check output folder.'}
-                </div>
+                    {/* Progress Monitor */}
+                    <div className="space-y-2 pt-4 border-t border-white/5">
+                        <div className="flex justify-between text-xs text-gray-400 font-mono">
+                            <span>STATUS</span>
+                            <span className={status === 'processing' ? 'text-cyber-primary animate-pulse' : 'text-gray-500'}>
+                                {status === 'idle' && 'READY'}
+                                {status === 'scanning' && 'SCANNING_FILES...'}
+                                {status === 'processing' && `PROCESSING [${stats.total} found]`}
+                                {status === 'complete' && 'TASK_COMPLETE'}
+                            </span>
+                        </div>
 
-                {/* Action Button */}
-                <button
-                    onClick={handleStart}
-                    disabled={!dir || status === 'scanning' || status === 'processing'}
-                    className={`w-full py-3 rounded font-bold tracking-wider transition-all duration-300 ${!dir || status !== 'idle' && status !== 'complete'
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                            : 'bg-cyber-primary/20 text-cyber-primary border border-cyber-primary hover:bg-cyber-primary hover:text-black shadow-[0_0_15px_rgba(0,242,255,0.3)]'
-                        }`}
-                >
-                    INITIATE PROCESS
-                </button>
+                        {/* Progress Bar Container */}
+                        <div className="h-6 w-full bg-black/50 rounded border border-white/5 relative overflow-hidden">
+                            {/* Bar */}
+                            <div
+                                className={`h-full bg-gradient-to-r from-cyber-primary/50 to-cyber-primary transition-all duration-300 ${status === 'scanning' && 'animate-pulse w-full'}`}
+                                style={{
+                                    width: status === 'complete' ? '100%' : status === 'processing' ? '100%' : status === 'scanning' ? '100%' : '0%'
+                                }}
+                            ></div>
+
+                            {/* Percentage Text Overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80 drop-shadow-md">
+                                {status === 'complete' ? '100%' : status === 'processing' || status === 'scanning' ? 'WORKING...' : '0%'}
+                            </div>
+                        </div>
+
+                        <p className="text-center text-[10px] text-gray-600 italic mt-2">
+                            Check Radar for live telemetry.
+                        </p>
+                    </div>
+
+                </div>
             </div>
         </div>
     );

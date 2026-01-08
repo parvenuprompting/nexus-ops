@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'JetBrains Mono', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
@@ -13,27 +13,31 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #14141e; /* cyber-bg */
+  /* Deep space gradient background */
+  background: radial-gradient(circle at 10% 20%, rgb(20, 20, 30) 0%, rgb(10, 10, 15) 90%);
   color: #e0e0e0;
-  overflow: hidden; /* App-like feel */
+  overflow: hidden;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent; 
-}
-::-webkit-scrollbar-thumb {
-  background: #333; 
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #555; 
+/* Custom Scrollbar for 'custom-scrollbar' class */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
 }
 
-/* Glass Utility */
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Global utility for glass panels if needed */
 .glass-panel {
-    @apply bg-cyber-card backdrop-blur-md border border-cyber-border rounded-xl shadow-lg;
+  @apply bg-black/40 backdrop-blur-md border border-white/10 rounded-xl shadow-lg;
 }

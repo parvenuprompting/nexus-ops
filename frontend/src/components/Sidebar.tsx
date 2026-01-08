@@ -5,42 +5,51 @@ type Props = {
 
 export default function Sidebar({ activeTab, onTabChange }: Props) {
     const tabs = [
-        { id: 'forge', label: 'Forge', icon: '⚡' },
-        { id: 'radar', label: 'Radar', icon: '📡' },
-        { id: 'vault', label: 'The Vault', icon: '🔒' },
-        { id: 'siphon', label: 'Siphon', icon: '🌊' },
-        { id: 'terminal', label: 'Terminal', icon: '💻' },
+        { id: 'forge', label: 'Forge' },
+        { id: 'radar', label: 'Radar' },
+        { id: 'vault', label: 'The Vault' },
+        { id: 'siphon', label: 'Siphon' },
+        { id: 'terminal', label: 'Terminal' },
     ];
 
     return (
-        <div className="w-64 h-full bg-cyber-bg/50 backdrop-blur-md border-r border-cyber-border flex flex-col p-4">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-cyber-primary to-cyber-secondary bg-clip-text text-transparent">
+        <div className="w-64 h-full bg-black/40 backdrop-blur-xl border-r border-white/10 flex flex-col p-4 shadow-2xl z-20">
+            <div className="mb-6 mt-2 text-center">
+                <h1 className="text-xl font-black font-mono tracking-[0.2em] text-gray-200">
                     NEXUS HUB
                 </h1>
-                <p className="text-xs text-gray-500 tracking-wider mt-1">v1.2.0-wails</p>
+                <div className="w-16 h-0.5 bg-cyber-primary/50 mx-auto mt-2 blur-[1px]"></div>
             </div>
 
-            <nav className="flex-1 space-y-2">
+            <nav className="flex-1 flex flex-col gap-3">
                 {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => onTabChange(tab.id)}
-                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-all duration-200 ${activeTab === tab.id
-                                ? 'bg-cyber-primary/10 text-cyber-primary border border-cyber-primary/20 shadow-[0_0_15px_rgba(0,242,255,0.2)]'
-                                : 'text-gray-400 hover:text-white hover:bg-white/5'
-                            }`}
+                        className={`
+                            relative w-full py-3 px-4 rounded-sm font-bold tracking-wide transition-all duration-200 uppercase text-sm
+                            border backdrop-blur-sm
+                            ${activeTab === tab.id
+                                ? 'bg-cyber-primary/10 border-cyber-primary/60 text-cyber-primary shadow-[0_0_15px_rgba(0,242,255,0.15)]'
+                                : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200 hover:border-white/20'
+                            }
+                        `}
                     >
-                        <span>{tab.icon}</span>
-                        <span className="font-medium tracking-wide">{tab.label}</span>
+                        {/* Active Indicator Line */}
+                        {activeTab === tab.id && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyber-primary shadow-[0_0_8px_#00f2ff]"></div>
+                        )}
+                        {tab.label}
                     </button>
                 ))}
             </nav>
 
-            <div className="mt-auto pt-4 border-t border-cyber-border">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    SYSTEM ONLINE
+            {/* Footer with version */}
+            <div className="mt-auto text-center">
+                <p className="text-[10px] font-mono text-gray-600">v1.2.0-wails</p>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_5px_#22c55e]"></div>
+                    <span className="text-[10px] text-gray-500 tracking-wider">ONLINE</span>
                 </div>
             </div>
         </div>
