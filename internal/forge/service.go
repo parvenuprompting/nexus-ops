@@ -30,22 +30,22 @@ func NewProcessor(state *sys.AppState) *Processor {
 }
 
 // Start initiates the worker pool to process images in inputDir.
-// It returns a total count of images found, and an error if any setup fails.
-func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int) (int, error) {
+// It returns a total count of images found, a channel that closes when all workers are done, and an error if setup fails.
+func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int) (int, <-chan struct{}, error) {
 	// 1. Validate Input
 	matches, err := scanImages(inputDir)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	totalImages := len(matches)
 	if totalImages == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 
 	// 2. Prepare Output Directory
 	outputDir := filepath.Join(inputDir, "output")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return 0, fmt.Errorf("failed to create output dir: %w", err)
+		return 0, nil, fmt.Errorf("failed to create output dir: %w", err)
 	}
 
 	// 3. Setup Channels and WaitGroup
@@ -60,21 +60,19 @@ func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int)
 
 	// 5. Enqueue Jobs
 	// We do this in a separate goroutine or just push them all since buffer is large enough.
-	// Since we know the count, we buffered the channel to hold all.
 	for _, path := range matches {
 		jobs <- path
 	}
 	close(jobs)
 
-	// 6. Wait for completion in background to cleanup
-	// We don't block Start(), but we can return.
-	// Actually, for the UI progress bar, we might want to know when it's *all* done?
-	// The prompt implies we just fire it off. The UI updates via Metrics.
+	// 6. Monitor completion (The requested improvements)
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-	// Wait logic is handled by the workers decrementing waitgroup?
-	// To cleanly 'stop' the task group, we rely on context.
-
-	return totalImages, nil
+	return totalImages, done, nil
 }
 
 func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan string, outputDir string, workerID int) {
@@ -108,7 +106,6 @@ func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan 
 			// Update Metrics
 			if err != nil {
 				p.State.Metrics.Errors.Add(1)
-				// fmt.Printf("Worker %d error on %s: %v\n", workerID, path, err)
 			} else {
 				p.State.Metrics.TasksCompleted.Add(1)
 			}

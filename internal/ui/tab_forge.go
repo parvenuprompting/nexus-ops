@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"runtime"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -64,7 +65,7 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 			workerCount := runtime.NumCPU()
 			progressLabel.SetText(fmt.Sprintf("Starting %d workers...", workerCount))
 
-			total, err := processor.Start(state.Ctx, selectedDir, workerCount)
+			total, doneChan, err := processor.Start(state.Ctx, selectedDir, workerCount)
 			if err != nil {
 				dialog.ShowError(err, window)
 				progressLabel.SetText(fmt.Sprintf("Error: %v", err))
@@ -80,35 +81,32 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 			// Watch progress
 			progressLabel.SetText(fmt.Sprintf("Processing %d images with %d workers...", total, workerCount))
 
-			// We can poll metrics to update progress bar smoothly
-			// Simple loop until done
-			// Note: Start() returns immediately after queueing, but the actual work happens async.
-			// Start() logic in previous step: Enqueues then returns. The workers are running.
-			// We need to know when they are finished.
-			// Start() returned total count.
-			// We can check TasksCompleted + Errors == Total.
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
 
 			for {
-				done := state.Metrics.TasksCompleted.Load()
-				errs := state.Metrics.Errors.Load()
-				current := float64(done + errs)
+				select {
+				case <-doneChan:
+					// All done
+					progressBar.SetValue(1.0)
+					progressLabel.SetText(fmt.Sprintf("Processing Complete! (%d images processed)", total))
+					return
 
-				progressBar.SetValue(current / float64(total))
-
-				if current >= float64(total) {
-					break
-				}
-
-				if state.Ctx.Err() != nil {
+				case <-state.Ctx.Done():
 					progressLabel.SetText("Cancelled.")
 					return
-				}
 
-				// Optional: sleep slightly to not spam lock
-				// time.Sleep(100 * time.Millisecond) // Don't block Fyne thread (we are in goroutine though)
-				// Using internal ticker or just busy loop with small yield
+				case <-ticker.C:
+					done := state.Metrics.TasksCompleted.Load()
+					errs := state.Metrics.Errors.Load()
+					current := float64(done + errs)
+
+					// Avoid divide by zero if total somehow 0
+					if total > 0 {
+						progressBar.SetValue(current / float64(total))
+					}
+				}
 			}
-			progressLabel.SetText("Processing Complete!")
 		}()
 	}
 
