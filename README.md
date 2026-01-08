@@ -3,29 +3,28 @@
 ## 🚀 Nexus Hub - Cyberpunk Command Center
 
 **Nexus Ops** is een moderne desktop applicatie, herbouwd met **Wails** (Go + React + TailwindCSS).
-Het combineert de kracht van Go's concurrency met de visuele vrijheid van moderne webtechnologie.
+Het combineert de brute kracht van Go's concurrency met de visuele elegantie van moderne webtechnologie en Glassmorphism.
 
 ![Nexus Hub Banner](assets/banner.png)
 
-## ✨ Features (Wails Upgrade)
+## ✨ Highlights (Wails Upgrade)
 
-### 1. Modern UI (React + Tailwind)
--   **Glassmorphism**: Echte transparantie en blur effecten (Mac/Windows).
--   **Frameless Window**: Custom Cyberpunk titlebar.
--   **Event-Driven**: Real-time updates via Wails Runtime Events (geen polling).
+### 🎨 Modern UI (React + Tailwind)
+-   **Glassmorphism**: Prachtige transparantie en `backdrop-blur` effecten (geoptimaliseerd voor Mac/Windows).
+-   **Frameless Window**: Een custom Cyberpunk titlebar voor een echte desktop ervaring.
+-   **Event-Driven Telemetry**: Real-time updates via het Wails event systeem (geen polling nodig).
 
-### 2. Core Modules
--   **Forge**: Image Processing met streaming progress.
-    -   *Non-blocking UI*: Scan duizenden bestanden zonder haperingen.
--   **Radar**: Live taak monitoring.
-    -   *Hybrid Fetching*: Directe load + Event updates.
--   **Sidebar**: Navigatie naar Vault, Siphon, Terminal (Placeholders).
+### 🛠 Core Modules
+-   **Forge**: Geavanceerde Image Processing met streaming progress.
+    -   *Non-blocking UI*: Scan en verwerk duizenden bestanden zonder haperingen in de interface.
+-   **Radar**: Live monitoring van alle systeemtaken met kleurgecodeerde badges en real-time duur tracking.
+-   **Cyber Sidebar**: Snelle navigatie tussen Forge, Radar en toekomstige modules zoals Vault, Siphon en Terminal.
 
-## 🛠 Installatie & Start
+## 🚀 Snel Starten
 
-Vereisten: Go 1.20+, Node 16+
+Vereisten: Go 1.20+, Node 18+
 
-1.  **Installeer Wails**:
+1.  **Installeer Wails CLI**:
     ```bash
     go install github.com/wailsapp/wails/v2/cmd/wails@latest
     ```
@@ -34,23 +33,21 @@ Vereisten: Go 1.20+, Node 16+
     ```bash
     wails dev
     ```
-    *Dit start de app en een browser-venster met hot-reload.*
+    *Met hot-reload voor zowel Go als React wijzigingen.*
 
-3.  **Build voor Productie**:
+3.  **Bouw voor Productie**:
     ```bash
     wails build
     ```
-    *De binary verschijnt in `build/bin/`.*
+    *De binary verschijnt direct in `build/bin/`.*
 
 ## 🏗 Architectuur
 
--   `main.go`: Entry point & Wails configuratie.
--   `app.go`: Bridge tussen Go en Javascript.
--   `internal/sys`: Core state en metrics (Go).
--   `internal/forge`: Worker pool logic (Go).
--   `frontend/`: React applicatie (UI).
-    -   `src/components`: UI Componenten (Forge, Radar, Sidebar).
-    -   `wailsjs`: Automatisch gegenereerde bindings.
+-   `main.go`: Applicatie entry point & venster configuratie.
+-   `app.go`: De bridge die Go functies en events blootstelt aan de frontend.
+-   `internal/sys`: Beheert de wereldwijde state, metrics en taakbeheer (Go).
+-   `internal/forge`: High-performance worker pools voor beeldverwerking (Go).
+-   `frontend/`: Moderne React applicatie met TailwindCSS v3 styling.
 
 ---
-*Gemigreerd van Fyne naar Wails voor superieure aesthetics.*
+*Nexus Ops: Kracht ontmoet Esthetiek.*
