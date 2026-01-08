@@ -1,57 +1,56 @@
-# Nexus Ops
+# Nexus Ops (Wails Edition)
+
+## 🚀 Nexus Hub - Cyberpunk Command Center
+
+**Nexus Ops** is een moderne desktop applicatie, herbouwd met **Wails** (Go + React + TailwindCSS).
+Het combineert de kracht van Go's concurrency met de visuele vrijheid van moderne webtechnologie.
 
 ![Nexus Hub Banner](assets/banner.png)
 
-**Nexus Ops** is een high-performance desktop applicatie gebouwd met **Go** en **Fyne v2**. Het fungeert als een "Command Center" voor diverse systeemtaken, met een focus op concurrency, image processing en real-time monitoring.
+## ✨ Features (Wails Upgrade)
 
-## 🚀 Features
+### 1. Modern UI (React + Tailwind)
+-   **Glassmorphism**: Echte transparantie en blur effecten (Mac/Windows).
+-   **Frameless Window**: Custom Cyberpunk titlebar.
+-   **Event-Driven**: Real-time updates via Wails Runtime Events (geen polling).
 
-### 1. Nexus Hub Architectuur
-De applicatie maakt gebruik van een moderne **Sidebar + Content** layout ("Glassmorphism" stijl).
--   **Forge**: Een krachtige Image Processing module voor batch resizing.
-    -   *Streaming Scanner*: Verwerkt duizenden bestanden zonder UI freeze.
-    -   *Smart Workers*: Gebruikt `runtime.NumCPU()` workers en semaphores voor geheugenveiligheid.
--   **Radar**: Real-time taak monitoring.
-    -   *Event-Driven*: Directe updates bij start/stop van taken.
-    -   *Visuals*: Kleurgecodeerde badges (CPU, I/O, IMG).
--   **The Vault** (Placeholder): Secure storage voor encrypted assets.
--   **Siphon** (Placeholder): Data stream dashboard.
--   **Terminal** (Placeholder): In-app console emulator.
-
-### 2. Technologie & Performance
--   **Concurrency**: Gebouwd op Go's concurrency primitieven (Goroutines, Channels, WaitGroups).
--   **Type-Safe State**: Robuust state management met RWMutex beschermde maps.
--   **Memory Safety**: Automatische limitering van zware operaties om OOM crashes te voorkomen.
--   **Fyne v2 UI**: Cross-platform GUI met een custom Cyberpunk thema.
+### 2. Core Modules
+-   **Forge**: Image Processing met streaming progress.
+    -   *Non-blocking UI*: Scan duizenden bestanden zonder haperingen.
+-   **Radar**: Live taak monitoring.
+    -   *Hybrid Fetching*: Directe load + Event updates.
+-   **Sidebar**: Navigatie naar Vault, Siphon, Terminal (Placeholders).
 
 ## 🛠 Installatie & Start
 
-Vereisten: Go 1.20 of hoger.
+Vereisten: Go 1.20+, Node 16+
 
-```bash
-# Clone de repository
-git clone https://github.com/parvenuprompting/nexus-ops.git
-cd nexus-ops
+1.  **Installeer Wails**:
+    ```bash
+    go install github.com/wailsapp/wails/v2/cmd/wails@latest
+    ```
 
-# Dependencies installeren
-go mod tidy
+2.  **Start Development Mode**:
+    ```bash
+    wails dev
+    ```
+    *Dit start de app en een browser-venster met hot-reload.*
 
-# Applicatie starten
-go run ./cmd/nexus
-```
+3.  **Build voor Productie**:
+    ```bash
+    wails build
+    ```
+    *De binary verschijnt in `build/bin/`.*
 
 ## 🏗 Architectuur
 
-De codebase volgt een strikte scheiding van verantwoordelijkheden:
-
--   `cmd/nexus`: Entry point en setup.
--   `internal/sys`: Core state, metrics en task definities.
--   `internal/ui`: Fyne UI layout, tabbladen en custom widgets.
--   `internal/forge`: Business logic voor image processing en worker pools.
-
-## 📷 Screenshots
-
-Zie de banner hierboven voor de actuele "Glassmorphism" interface.
+-   `main.go`: Entry point & Wails configuratie.
+-   `app.go`: Bridge tussen Go en Javascript.
+-   `internal/sys`: Core state en metrics (Go).
+-   `internal/forge`: Worker pool logic (Go).
+-   `frontend/`: React applicatie (UI).
+    -   `src/components`: UI Componenten (Forge, Radar, Sidebar).
+    -   `wailsjs`: Automatisch gegenereerde bindings.
 
 ---
-*Ontwikkeld als demonstratie van Advanced Agentic Coding met Go en Fyne.*
+*Gemigreerd van Fyne naar Wails voor superieure aesthetics.*

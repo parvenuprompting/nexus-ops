@@ -12,8 +12,8 @@ const (
 )
 
 type Task struct {
-	ID        string
-	Type      TaskType
-	StartedAt time.Time
-	Status    string
+	ID        string    `json:"id"`
+	Type      TaskType  `json:"type"`
+	StartedAt time.Time `json:"startedAt"`
+	Status    string    `json:"status"`
 }
