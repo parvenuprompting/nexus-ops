@@ -1,17 +1,16 @@
 package sys
 
-import (
-	"time"
-)
+import "time"
 
+// TaskType represents the category of a task (CPU, IO, etc.)
 type TaskType string
 
 const (
-	TaskTypeCPU TaskType = "CPU-Bound"
-	TaskTypeIO  TaskType = "I/O-Bound"
+	TaskTypeCPU         TaskType = "CPU-Bound"
+	TaskTypeIO          TaskType = "I/O-Bound"
+	TaskTypeImageResize TaskType = "Image-Resize"
 )
 
-// Task represents a unit of work.
 type Task struct {
 	ID        string
 	Type      TaskType

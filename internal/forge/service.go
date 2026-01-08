@@ -20,65 +20,68 @@ import (
 // Processor handles the image resizing workload.
 type Processor struct {
 	State *sys.AppState
+	// Phase 3: Memory Safety - Semaphore
+	decodeSem chan struct{}
 }
 
 // NewProcessor creates a new Processor.
 func NewProcessor(state *sys.AppState) *Processor {
+	// Allow max 4 concurrent heavy decodes
 	return &Processor{
-		State: state,
+		State:     state,
+		decodeSem: make(chan struct{}, 4),
 	}
 }
 
-// Start initiates the worker pool to process images in inputDir.
-// It returns a total count of images found, a channel that closes when all workers are done, and an error if setup fails.
-func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int) (int, <-chan struct{}, error) {
-	// 1. Validate Input
-	matches, err := scanImages(inputDir)
-	if err != nil {
-		return 0, nil, err
-	}
-	totalImages := len(matches)
-	if totalImages == 0 {
-		return 0, nil, nil
-	}
-
-	// 2. Prepare Output Directory
+// Start initiates the worker pool and streaming scanner.
+// Returns:
+// - scanFound: channel that receives total count when scanning is done
+// - workersDone: channel that closes when all workers are finished
+// - error: if immediate setup fails
+func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int) (<-chan int, <-chan struct{}, error) {
+	// 1. Prepare Output Directory
 	outputDir := filepath.Join(inputDir, "output")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return 0, nil, fmt.Errorf("failed to create output dir: %w", err)
+		return nil, nil, fmt.Errorf("failed to create output dir: %w", err)
 	}
 
-	// 3. Setup Channels and WaitGroup
-	jobs := make(chan string, totalImages)
-	var wg sync.WaitGroup
+	// 2. Setup Channels
+	// Unbuffered or small buffer for streaming jobs
+	jobs := make(chan string, workerCount*2)
+	scanFound := make(chan int, 1)
+	workersDone := make(chan struct{})
+
+	// 3. Start Streaming Scanner
+	go func() {
+		defer close(jobs)
+		total, err := scanImagesStreaming(ctx, inputDir, jobs)
+		if err != nil {
+			fmt.Printf("Scanner Error: %v\n", err) // Log for now
+		}
+		scanFound <- total
+		close(scanFound)
+	}()
 
 	// 4. Start Workers
+	var wg sync.WaitGroup
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go p.worker(ctx, &wg, jobs, outputDir, i)
 	}
 
-	// 5. Enqueue Jobs
-	// We do this in a separate goroutine or just push them all since buffer is large enough.
-	for _, path := range matches {
-		jobs <- path
-	}
-	close(jobs)
-
-	// 6. Monitor completion (The requested improvements)
-	done := make(chan struct{})
+	// 5. Monitor Workers Completion
 	go func() {
 		wg.Wait()
-		close(done)
+		close(workersDone)
 	}()
 
-	return totalImages, done, nil
+	return scanFound, workersDone, nil
 }
 
 func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan string, outputDir string, workerID int) {
 	defer wg.Done()
 
-	// Register worker as an active goroutine
+	// Register worker
 	p.State.Metrics.ActiveGoroutines.Add(1)
 	defer p.State.Metrics.ActiveGoroutines.Add(-1)
 
@@ -91,51 +94,63 @@ func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan 
 				return
 			}
 
-			// Register specific task in Radar
+			// Task Registration (Thread-Safe)
 			taskID := fmt.Sprintf("img-%d-%s", workerID, filepath.Base(path))
 			task := &sys.Task{
 				ID:        taskID,
-				Type:      sys.TaskType("Image-Resize"), // Cast string to TaskType
+				Type:      sys.TaskTypeImageResize,
 				StartedAt: time.Now(),
 				Status:    "Processing",
 			}
-			p.State.ActiveTasks.Store(taskID, task)
+			p.State.AddActiveTask(task)
 
-			err := processImage(path, outputDir)
+			err := p.processImageSafe(path, outputDir)
 
-			// Update Metrics
 			if err != nil {
 				p.State.Metrics.Errors.Add(1)
 			} else {
 				p.State.Metrics.TasksCompleted.Add(1)
 			}
 
-			// Deregister from Radar
-			p.State.ActiveTasks.Delete(taskID)
+			p.State.RemoveActiveTask(taskID)
 		}
 	}
 }
 
-func scanImages(dir string) ([]string, error) {
-	var images []string
+// scanImagesStreaming walks the directory and sends files to the jobs channel
+func scanImagesStreaming(ctx context.Context, dir string, jobs chan<- string) (int, error) {
+	count := 0
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	for _, e := range entries {
+		if ctx.Err() != nil {
+			return count, ctx.Err()
+		}
 		if e.IsDir() {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(e.Name()))
 		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
-			images = append(images, filepath.Join(dir, e.Name()))
+			select {
+			case jobs <- filepath.Join(dir, e.Name()):
+				count++
+			case <-ctx.Done():
+				return count, ctx.Err()
+			}
 		}
 	}
-	return images, nil
+	return count, nil
 }
 
-func processImage(srcPath, outDir string) error {
+// processImageSafe with Memory Semaphore
+func (p *Processor) processImageSafe(srcPath, outDir string) error {
+	// Acquire semaphore
+	p.decodeSem <- struct{}{}
+	defer func() { <-p.decodeSem }()
+
 	// Open file
 	file, err := os.Open(srcPath)
 	if err != nil {
@@ -143,11 +158,20 @@ func processImage(srcPath, outDir string) error {
 	}
 	defer file.Close()
 
+	// Decode Config first (Memory Safety check - optional step but good practice)
+	// For now we trust the semaphore to limit concurrent loading.
+
 	// Decode
 	img, format, err := image.Decode(file)
 	if err != nil {
 		return err
 	}
+
+	// Release semaphore early?
+	// No, we hold it during resize too because resize creates a new buffer.
+	// Actually, we could release after Decode if we want to allow resizing in parallel but limit decoding.
+	// But `image.Decode` produces the big buffer. `draw.ApproxBiLinear.Scale` produces another one.
+	// We'll be conservative and hold it.
 
 	// Resize (50%)
 	bounds := img.Bounds()
@@ -157,7 +181,6 @@ func processImage(srcPath, outDir string) error {
 
 	dst := image.NewRGBA(rect)
 
-	// Draw with ApproxBiLinear (decent balance of speed/quality)
 	draw.ApproxBiLinear.Scale(dst, rect, img, bounds, draw.Over, nil)
 
 	// Save

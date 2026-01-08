@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"runtime"
 	"time"
 
@@ -53,7 +54,7 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 		startBtn.Disable()
 		selectBtn.Disable()
 		progressBar.SetValue(0)
-		progressLabel.SetText("Scanning and configuring...")
+		progressLabel.SetText("Initializing Scanner...")
 
 		// Reset stats
 		state.Metrics.TasksCompleted.Store(0)
@@ -62,53 +63,77 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 		// Start in background
 		go func() {
 			defer func() {
+				// Re-enable UI on main thread inside callback or just rely on Fyne's thread safety for simple Enables?
+				// Fyne widgets are generally thread-safe for basic Set calls, but let's be safe.
+				// However, defer runs at end of goroutine.
 				startBtn.Enable()
 				selectBtn.Enable()
 			}()
 
-			// How many workers? Let's use runtime.NumCPU()
 			workerCount := runtime.NumCPU()
-			progressLabel.SetText(fmt.Sprintf("Starting %d workers...", workerCount))
 
-			total, doneChan, err := processor.Start(state.Ctx, selectedDir, workerCount)
+			// Phase 1: Streaming Start
+			scanDoneChan, workersDoneChan, err := processor.Start(state.Ctx, selectedDir, workerCount)
 			if err != nil {
 				dialog.ShowError(err, window)
 				progressLabel.SetText(fmt.Sprintf("Error: %v", err))
 				return
 			}
 
-			if total == 0 {
-				progressLabel.SetText("No images found in directory.")
-				progressBar.SetValue(1) // Full
-				return
-			}
-
-			// Watch progress
-			progressLabel.SetText(fmt.Sprintf("Processing %d images with %d workers...", total, workerCount))
-
+			// Progress Loop
 			ticker := time.NewTicker(100 * time.Millisecond)
 			defer ticker.Stop()
 
+			scanning := true
+			total := 0
+			progressLabel.SetText("Scanning... (0 found)")
+
 			for {
 				select {
-				case <-doneChan:
-					// All done
-					progressBar.SetValue(1.0)
-					progressLabel.SetText(fmt.Sprintf("Processing Complete! (%d images processed)", total))
-					return
-
 				case <-state.Ctx.Done():
 					progressLabel.SetText("Cancelled.")
 					return
 
+				case t, ok := <-scanDoneChan:
+					if ok {
+						total = t
+						scanning = false
+						if total == 0 {
+							progressLabel.SetText("No images found.")
+							progressBar.SetValue(1.0)
+							// We still wait for workersDoneChan which should close immediately
+						}
+					}
+
+				case <-workersDoneChan:
+					progressBar.SetValue(1.0)
+					progressLabel.SetText(fmt.Sprintf("Complete! %d images processed.", total))
+					return
+
 				case <-ticker.C:
+					// Update UI
 					done := state.Metrics.TasksCompleted.Load()
 					errs := state.Metrics.Errors.Load()
-					current := float64(done + errs)
 
-					// Avoid divide by zero if total somehow 0
-					if total > 0 {
-						progressBar.SetValue(current / float64(total))
+					if scanning {
+						// Indeterminate Pulse effect
+						val := progressBar.Value + 0.05
+						if val > 1.0 {
+							val = 0
+						}
+						progressBar.SetValue(val)
+
+						// Try to estimate found based on processed if we don't have total?
+						// Actually scanning is fast, but let's show some activity.
+						// We don't have "found so far" count from scanner unless we added another channel.
+						// "Scanning..." is sufficient.
+					} else {
+						// Deterministic
+						if total > 0 {
+							current := float64(done + errs)
+							progressBar.SetValue(math.Min(current/float64(total), 1.0))
+							progressLabel.SetText(fmt.Sprintf("Processing... (%d/%d)", int(done+errs), total))
+						}
 					}
 				}
 			}
@@ -130,15 +155,13 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 		widget.NewLabelWithStyle("Check Radar for details.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 	)
 
-	// Background: Semi-transparent dark overlay + White 1px border
+	// Background
 	bg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 40, A: 200})
 	border := canvas.NewRectangle(color.Transparent)
 	border.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 50}
 	border.StrokeWidth = 1
 
-	// Card Stack
 	card := container.NewStack(bg, border, container.NewPadded(content))
 
-	// Center the card in the tab
 	return container.NewCenter(container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 400)), card))
 }

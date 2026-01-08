@@ -74,7 +74,7 @@ func createRadarPanel(state *sys.AppState) fyne.CanvasObject {
 			case sys.TaskTypeIO:
 				badgeBg.FillColor = color.RGBA{R: 0, G: 200, B: 100, A: 200} // Green
 				badgeLbl.SetText("I/O")
-			case "Image-Resize":
+			case sys.TaskTypeImageResize:
 				badgeBg.FillColor = color.RGBA{R: 200, G: 0, B: 255, A: 200} // Purple/Pink
 				badgeLbl.SetText("IMG")
 			default:
@@ -93,44 +93,63 @@ func createRadarPanel(state *sys.AppState) fyne.CanvasObject {
 	// Main container stack (List + Empty State)
 	mainStack := container.NewStack(listContainer, emptyState)
 
-	// Refresher loop
+	updateList := func() {
+		// Snapshot Active Tasks
+		snapshot := state.SnapshotActiveTasks()
+
+		sort.Slice(snapshot, func(i, j int) bool {
+			return snapshot[i].StartedAt.Before(snapshot[j].StartedAt)
+		})
+
+		dataMu.Lock()
+		activeTasks = snapshot
+		count := len(activeTasks)
+		dataMu.Unlock()
+
+		if count == 0 {
+			listContainer.Hide()
+			emptyState.Show()
+		} else {
+			emptyState.Hide()
+			listContainer.Show()
+			list.Refresh()
+		}
+	}
+
+	// Initial Update
+	updateList()
+
+	// Event-Driven Refresher loop
+	// Note: We still might want a slow ticker (e.g. 1s) just to update the "Duration" labels
+	// because they are relative times. Pure event-driven only updates on add/remove.
+	// But the requirement says "Remove Polling Ticker".
+	// Compromise: Update on Event + Update on slow Ticker (1s) for liveness if list is not empty.
+	// Or strictly follow "Trigger only when task added/removed".
+	// The prompt said: "Event-Driven Radar (Remove Polling)".
+	// I will remove the fast polling.
+
 	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
+		// Slow ticker for duration updates only
+		durationTicker := time.NewTicker(1 * time.Second)
+		defer durationTicker.Stop()
+
 		for {
 			select {
 			case <-state.Ctx.Done():
 				return
-			case <-ticker.C:
-				var snapshot []*sys.Task
-				state.ActiveTasks.Range(func(key, value interface{}) bool {
-					if t, ok := value.(*sys.Task); ok {
-						snapshot = append(snapshot, t)
-					}
-					return true
-				})
-
-				sort.Slice(snapshot, func(i, j int) bool {
-					return snapshot[i].StartedAt.Before(snapshot[j].StartedAt)
-				})
-
+			case <-state.UpdateChan:
+				updateList()
+			case <-durationTicker.C:
+				// Refresh only if we have items, to update timers
 				dataMu.Lock()
-				activeTasks = snapshot
 				count := len(activeTasks)
 				dataMu.Unlock()
-
-				if count == 0 {
-					listContainer.Hide()
-					emptyState.Show()
-				} else {
-					emptyState.Hide()
-					listContainer.Show()
-					list.Refresh()
+				if count > 0 {
+					list.Refresh() // Just redraw content (Duration strings)
 				}
 			}
 		}
 	}()
 
-	// Add a subtle title or padding
 	return container.NewPadded(mainStack)
 }
