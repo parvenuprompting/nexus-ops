@@ -2,12 +2,15 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"runtime"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
 	"nexus-ops/internal/forge"
@@ -17,7 +20,8 @@ import (
 func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject {
 	processor := forge.NewProcessor(state)
 
-	label := widget.NewLabel("Forge: Image Resizer")
+	// --- Header ---
+	label := widget.NewLabelWithStyle("Forge: Image Resizer", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	dirLabel := widget.NewLabel("No directory selected")
 	var selectedDir string
@@ -25,6 +29,7 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 	progressBar := widget.NewProgressBar()
 	progressBar.SetValue(0)
 	progressLabel := widget.NewLabel("Ready")
+	progressLabel.Alignment = fyne.TextAlignCenter
 
 	startBtn := widget.NewButton("Start Processing", nil)
 	startBtn.Disable()
@@ -110,15 +115,30 @@ func createForgePanel(state *sys.AppState, window fyne.Window) fyne.CanvasObject
 		}()
 	}
 
-	return container.NewVBox(
+	// --- Glass Card Styling ---
+	content := container.NewVBox(
 		label,
+		layout.NewSpacer(),
 		selectBtn,
 		dirLabel,
-		widget.NewSeparator(),
+		layout.NewSpacer(),
 		startBtn,
+		layout.NewSpacer(),
 		progressLabel,
 		progressBar,
-		widget.NewSeparator(),
-		widget.NewLabel("Check Radar for details."),
+		layout.NewSpacer(),
+		widget.NewLabelWithStyle("Check Radar for details.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 	)
+
+	// Background: Semi-transparent dark overlay + White 1px border
+	bg := canvas.NewRectangle(color.RGBA{R: 30, G: 30, B: 40, A: 200})
+	border := canvas.NewRectangle(color.Transparent)
+	border.StrokeColor = color.RGBA{R: 255, G: 255, B: 255, A: 50}
+	border.StrokeWidth = 1
+
+	// Card Stack
+	card := container.NewStack(bg, border, container.NewPadded(content))
+
+	// Center the card in the tab
+	return container.NewCenter(container.New(layout.NewGridWrapLayout(fyne.NewSize(500, 400)), card))
 }

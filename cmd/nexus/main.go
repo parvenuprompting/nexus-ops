@@ -28,6 +28,7 @@ func main() {
 
 	// 2. Fyne Initialization
 	a := app.New()
+	a.Settings().SetTheme(ui.NewCyberpunkTheme())
 	w := a.NewWindow("Nexus Ops")
 	w.Resize(fyne.NewSize(600, 400))
 
