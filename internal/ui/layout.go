@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
 	"nexus-ops/internal/sys"
@@ -18,38 +19,56 @@ func Setup(w fyne.Window, state *sys.AppState) {
 	statusData := binding.NewString()
 	statusLabel := widget.NewLabelWithData(statusData)
 
-	// --- Tabs ---
-	// Tab 1: Forge
-	forgeTab := createForgePanel(state, w)
-	// Tab 2: Radar
-	radarTab := createRadarPanel(state)
+	// --- Modules ---
+	forgePanel := createForgePanel(state, w)
+	radarPanel := createRadarPanel(state)
+	vaultPanel := createVaultPanel(state)
+	siphonPanel := createSiphonPanel(state)
+	termPanel := createTerminalPanel(state)
 
-	// Wrap tabs with animation
-	// Note: Fyne tabs don't have built-in crossfade. We can effectively simulate it
-	// by just letting them be. The user asked for "heel lichte fade-in".
-	// We can wrap the tab content in a custom function if we wanted.
-	// For now, let's keep it simple as "Tabs" switching is handled by Fyne.
-	// To add animation we'd need to listen to OnSelected.
-	tabs := container.NewAppTabs(
-		container.NewTabItem("Forge", forgeTab),
-		container.NewTabItem("Radar", radarTab),
+	// --- Navigation Logic ---
+	// We'll use a container stack to swap content
+	contentStack := container.NewStack()
+	// Default View
+	contentStack.Add(forgePanel)
+
+	// We utilize a simple map or switch to swap content.
+	// Sidebar Buttons
+
+	// Helper to create nav buttons
+	navBtn := func(label string, panel fyne.CanvasObject) *widget.Button {
+		return widget.NewButton(label, func() {
+			contentStack.Objects = []fyne.CanvasObject{panel}
+			contentStack.Refresh()
+		})
+	}
+
+	sidebar := container.NewVBox(
+		widget.NewLabelWithStyle("NEXUS HUB", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		widget.NewSeparator(),
+		navBtn("Forge", forgePanel),
+		navBtn("Radar", radarPanel),
+		navBtn("The Vault", vaultPanel),
+		navBtn("Siphon", siphonPanel),
+		navBtn("Terminal", termPanel),
+		layout.NewSpacer(), // Push content up
+		widget.NewLabelWithStyle("v1.0.2", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 	)
 
-	// Simple fade-in sequence on startup
-	// We can animate the opacity of the main content?
-	// Fyne doesn't support easy "Alpha" container without canvas.
-	// Let's rely on the theme's smoothness. The prompt asked explicit "animation".
-	// Let's add a "OnSelected" hook to fade content?
-	// AppTabs doesn't expose easy content replacement animation.
-	// We will skip complex animation to avoid overengineering and breaking layout.
-	// The transparent theme itself gives a "smooth" feel.
+	// --- Layout: Sidebar + Content ---
+	// Use HSplit for resizable sidebar
+	split := container.NewHSplit(
+		container.NewPadded(sidebar),
+		container.NewPadded(contentStack),
+	)
+	split.SetOffset(0.2) // 20% width for sidebar
 
 	// --- Main Layout ---
-	content := container.NewBorder(nil, statusLabel, nil, nil, tabs)
+	// Footer at bottom
+	content := container.NewBorder(nil, statusLabel, nil, nil, split)
 	w.SetContent(content)
 
 	// --- Global Update Loop ---
-	// Updates footer and triggers generic UI refreshes if needed
 	go func() {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
