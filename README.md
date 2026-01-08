@@ -1,44 +1,57 @@
 # Nexus Ops
 
-Nexus Ops is een krachtige desktopapplicatie gebouwd met Go en Fyne v2. De applicatie demonstreert geavanceerde concurrency patronen en systeemobservatie.
+![Nexus Hub Banner](assets/banner.png)
 
-## Functionaliteiten
+**Nexus Ops** is een high-performance desktop applicatie gebouwd met **Go** en **Fyne v2**. Het fungeert als een "Command Center" voor diverse systeemtaken, met een focus op concurrency, image processing en real-time monitoring.
 
-### 1. Forge (De Smederij)
-Een krachtige worker pool voor het verwerken van afbeeldingen.
-- **Image Processing**: Selecteer een map met afbeeldingen en laat Nexus Ops ze automatisch verkleinen.
-- **Concurrency**: Gebruikt meerdere workers (afhankelijk van je CPU cores) om taken parallel uit te voeren.
-- **Live Voortgang**: Volg de status via een voortgangsbalk.
+## 🚀 Features
 
-### 2. Radar (Het Systeem)
-Real-time inzicht in wat er onder de motorkap gebeurt.
-- **Visualisatie**: Zie actieve taken en processen live op het scherm.
-- **Metrics**: Monitor het aantal actieve goroutines, voltooide taken en eventuele fouten.
+### 1. Nexus Hub Architectuur
+De applicatie maakt gebruik van een moderne **Sidebar + Content** layout ("Glassmorphism" stijl).
+-   **Forge**: Een krachtige Image Processing module voor batch resizing.
+    -   *Streaming Scanner*: Verwerkt duizenden bestanden zonder UI freeze.
+    -   *Smart Workers*: Gebruikt `runtime.NumCPU()` workers en semaphores voor geheugenveiligheid.
+-   **Radar**: Real-time taak monitoring.
+    -   *Event-Driven*: Directe updates bij start/stop van taken.
+    -   *Visuals*: Kleurgecodeerde badges (CPU, I/O, IMG).
+-   **The Vault** (Placeholder): Secure storage voor encrypted assets.
+-   **Siphon** (Placeholder): Data stream dashboard.
+-   **Terminal** (Placeholder): In-app console emulator.
 
-## Installatie en Starten
+### 2. Technologie & Performance
+-   **Concurrency**: Gebouwd op Go's concurrency primitieven (Goroutines, Channels, WaitGroups).
+-   **Type-Safe State**: Robuust state management met RWMutex beschermde maps.
+-   **Memory Safety**: Automatische limitering van zware operaties om OOM crashes te voorkomen.
+-   **Fyne v2 UI**: Cross-platform GUI met een custom Cyberpunk thema.
 
-Zorg dat je Go 1.25+ geïnstalleerd hebt.
+## 🛠 Installatie & Start
+
+Vereisten: Go 1.20 of hoger.
 
 ```bash
 # Clone de repository
 git clone https://github.com/parvenuprompting/nexus-ops.git
 cd nexus-ops
 
-# Afhankelijkheden installeren
+# Dependencies installeren
 go mod tidy
 
-# Starten
+# Applicatie starten
 go run ./cmd/nexus
 ```
 
-## Architectuur
+## 🏗 Architectuur
 
-De code is modulair opgebouwd:
-- `cmd/nexus`: Het entrypoint van de applicatie.
-- `internal/forge`: De logica voor de worker pool en image processing.
-- `internal/sys`: Systeem-brede types, state en metrics.
-- `internal/ui`: De gebruikersinterface (Fyne).
+De codebase volgt een strikte scheiding van verantwoordelijkheden:
 
-## Auteur
+-   `cmd/nexus`: Entry point en setup.
+-   `internal/sys`: Core state, metrics en task definities.
+-   `internal/ui`: Fyne UI layout, tabbladen en custom widgets.
+-   `internal/forge`: Business logic voor image processing en worker pools.
 
-Gebouwd met ❤️ door Antigravity.
+## 📷 Screenshots
+
+Zie de banner hierboven voor de actuele "Glassmorphism" interface.
+
+---
+*Ontwikkeld als demonstratie van Advanced Agentic Coding met Go en Fyne.*
