@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	nativeRuntime "runtime"
-	"time"
 
-	"nexus-ops/internal/forge"
+	"nexus-ops/internal/services"
 	"nexus-ops/internal/sys"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -13,14 +11,16 @@ import (
 
 // App struct
 type App struct {
-	ctx   context.Context
-	state *sys.AppState
+	ctx        context.Context
+	state      *sys.AppState
+	opsService *services.OpsService
 }
 
 // NewApp creates a new App application struct
 func NewApp(state *sys.AppState) *App {
 	return &App{
-		state: state,
+		state:      state,
+		opsService: services.NewOpsService(state),
 	}
 }
 
@@ -68,50 +68,12 @@ func (a *App) SelectDirectory() string {
 // StartProcessing initiates the forge processor
 // Returns 0 immediately, events will track progress
 func (a *App) StartProcessing(dir string) int {
-	// Reset metrics
-	a.state.Metrics.TasksCompleted.Store(0)
-	a.state.Metrics.Errors.Store(0)
-
-	workerCount := nativeRuntime.NumCPU()
-	processor := forge.NewProcessor(a.state)
-
-	// Start returns (scanFoundChan, workersDoneChan, err)
-	scanFoundChan, workersDoneChan, err := processor.Start(a.state.Ctx, dir, workerCount)
+	err := a.opsService.StartProcessing(a.ctx, dir)
 	if err != nil {
 		appErr := sys.NewError("ERR_SCAN_FAILED", err.Error())
 		runtime.EventsEmit(a.ctx, "processing:error", appErr)
 		return 0
 	}
-
-	// Monitor progress and completion in background
-	go func() {
-		// 1. Wait for Scan Result (Streaming)
-		total := 0
-		select {
-		case t := <-scanFoundChan:
-			total = t
-			runtime.EventsEmit(a.ctx, "processing:started", total) // Signals Switch to Processing State
-		case <-a.state.Ctx.Done():
-			return
-		}
-
-		// 2. Monitor Workers
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-workersDoneChan:
-				runtime.EventsEmit(a.ctx, "processing:complete", true)
-				return
-			case <-a.state.Ctx.Done():
-				return
-			case <-ticker.C:
-				// Optional heartbeat
-			}
-		}
-	}()
-
 	return 0 // Return immediately
 }
 

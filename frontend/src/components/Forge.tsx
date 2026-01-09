@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react';
 import { SelectDirectory, StartProcessing } from '../../wailsjs/go/main/App';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
+import { AppError } from '../types';
 
 // Define explicit type for window.runtime
 declare global {
     interface Window {
         runtime: any;
     }
-}
-
-// Define AppError interface
-interface AppError {
-    code: string;
-    message: string;
 }
 
 export default function Forge() {
