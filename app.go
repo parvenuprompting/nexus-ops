@@ -11,16 +11,20 @@ import (
 
 // App struct
 type App struct {
-	ctx        context.Context
-	state      *sys.AppState
-	opsService *services.OpsService
+	ctx           context.Context
+	state         *sys.AppState
+	opsService    *services.OpsService
+	vaultService  *services.VaultService
+	siphonService *services.SiphonService
 }
 
 // NewApp creates a new App application struct
 func NewApp(state *sys.AppState) *App {
 	return &App{
-		state:      state,
-		opsService: services.NewOpsService(state),
+		state:         state,
+		opsService:    services.NewOpsService(state),
+		vaultService:  services.NewVaultService(),
+		siphonService: services.NewSiphonService(),
 	}
 }
 
@@ -99,4 +103,47 @@ func (a *App) RunCommand(cmd string) string {
 		return fmt.Sprintf("%s\nError: %s", output, err.Error())
 	}
 	return output
+}
+
+// -- Vault Methods --
+
+func (a *App) GetSecrets() []services.Secret {
+	secrets, err := a.vaultService.LoadSecrets()
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "Failed to load secrets: %v", err)
+		return []services.Secret{}
+	}
+	return secrets
+}
+
+func (a *App) AddSecret(key, value string) bool {
+	if err := a.vaultService.AddSecret(key, value); err != nil {
+		runtime.LogErrorf(a.ctx, "Failed to add secret: %v", err)
+		return false
+	}
+	return true
+}
+
+func (a *App) RemoveSecret(key string) bool {
+	if err := a.vaultService.RemoveSecret(key); err != nil {
+		runtime.LogErrorf(a.ctx, "Failed to remove secret: %v", err)
+		return false
+	}
+	return true
+}
+
+// -- Siphon Methods --
+
+type SiphonResult struct {
+	StatusCode int    `json:"statusCode"`
+	LatencyMs  int64  `json:"latencyMs"`
+	Error      string `json:"error"`
+}
+
+func (a *App) SiphonCheckHTTP(url string) SiphonResult {
+	code, latency, err := a.siphonService.CheckHTTP(url)
+	if err != nil {
+		return SiphonResult{Error: err.Error()}
+	}
+	return SiphonResult{StatusCode: code, LatencyMs: latency}
 }

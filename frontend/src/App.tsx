@@ -5,6 +5,8 @@ import Forge from './components/Forge';
 import Radar from './components/Radar';
 
 import Terminal from './components/Terminal';
+import Vault from './components/Vault';
+import Siphon from './components/Siphon';
 
 function App() {
     const [activeTab, setActiveTab] = useState('forge');
@@ -27,8 +29,10 @@ function App() {
                         {activeTab === 'forge' && <Forge />}
                         {activeTab === 'radar' && <Radar />}
                         {activeTab === 'terminal' && <Terminal />}
+                        {activeTab === 'vault' && <Vault />}
+                        {activeTab === 'siphon' && <Siphon />}
 
-                        {(activeTab !== 'forge' && activeTab !== 'radar' && activeTab !== 'terminal') && (
+                        {(activeTab !== 'forge' && activeTab !== 'radar' && activeTab !== 'terminal' && activeTab !== 'vault' && activeTab !== 'siphon') && (
                             <div className="glass-panel h-full flex items-center justify-center flex-col text-gray-500">
                                 <div className="text-6xl mb-4 opacity-50">🚧</div>
                                 <h3 className="text-xl font-bold font-mono uppercase tracking-widest mb-2">{activeTab} Module</h3>

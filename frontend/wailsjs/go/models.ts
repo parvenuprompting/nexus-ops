@@ -1,3 +1,43 @@
+export namespace main {
+	
+	export class SiphonResult {
+	    statusCode: number;
+	    latencyMs: number;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SiphonResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.statusCode = source["statusCode"];
+	        this.latencyMs = source["latencyMs"];
+	        this.error = source["error"];
+	    }
+	}
+
+}
+
+export namespace services {
+	
+	export class Secret {
+	    key: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Secret(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
+	    }
+	}
+
+}
+
 export namespace sys {
 	
 	export class MetricsDTO {
