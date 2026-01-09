@@ -14,5 +14,7 @@ export interface MetricsDTO {
 export interface Task {
     id: string;
     name: string;
+    type: string;
+    startedAt: string;
     status: string;
 }

@@ -1,44 +1,42 @@
 import { useState, useEffect } from 'react';
-import { GetActiveTasks } from '../../wailsjs/go/main/App';
+import { GetActiveTasks, GetMetrics } from '../../wailsjs/go/main/App';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
-
-// Type definitions from Go
-interface Task {
-    id: string;
-    type: string;
-    startedAt: string; // ISO string
-    status: string;
-}
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { Activity, Cpu, Server, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { MetricsDTO, Task } from '../types';
 
 export default function Radar() {
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [metrics, setMetrics] = useState<MetricsDTO>({ activeGoroutines: 0, tasksCompleted: 0, errors: 0 });
+    const [history, setHistory] = useState<{ time: string; goroutines: number }[]>([]);
 
     useEffect(() => {
-        GetActiveTasks().then((initial) => {
-            setTasks(initial || []);
+        // Initial Fetch
+        GetActiveTasks().then(initial => setTasks(initial || []));
+        GetMetrics().then(initial => setMetrics(initial));
+
+        // Subscriptions
+        const unsubTasks = EventsOn('activeTasks:update', (updated: Task[]) => setTasks(updated || []));
+        const unsubMetrics = EventsOn('metrics:update', (updated: MetricsDTO) => {
+            setMetrics(updated);
+            setHistory(prev => {
+                const now = new Date();
+                const timeStr = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+                const newHistory = [...prev, { time: timeStr, goroutines: updated.activeGoroutines }];
+                if (newHistory.length > 20) newHistory.shift(); // Keep last 20 points
+                return newHistory;
+            });
         });
 
-        const unsub = EventsOn('activeTasks:update', (updatedTasks: Task[]) => {
-            setTasks(updatedTasks || []);
-        });
-
-        // 1s ticker for relative time updates
-        const interval = setInterval(() => {
-            setTasks(prev => [...prev]);
-        }, 1000);
+        // Ticker for relative time
+        const interval = setInterval(() => setTasks(prev => [...prev]), 1000);
 
         return () => {
-            unsub();
+            unsubTasks();
+            unsubMetrics();
             clearInterval(interval);
         };
     }, []);
-
-    const getBadgeStyle = (type: string) => {
-        if (type.includes('CPU')) return 'bg-orange-500/10 text-orange-400 border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.1)]';
-        if (type.includes('I/O')) return 'bg-green-500/10 text-green-400 border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.1)]';
-        if (type.includes('Image')) return 'bg-purple-500/10 text-purple-400 border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.1)]';
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/30';
-    };
 
     const formatDuration = (start: string) => {
         const diff = Date.now() - new Date(start).getTime();
@@ -46,38 +44,88 @@ export default function Radar() {
     };
 
     return (
-        <div className="h-full flex flex-col p-4">
-            <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-2">
-                <h2 className="text-xl font-bold text-gray-200 tracking-wider font-mono">
-                    RADAR // <span className="text-cyber-primary text-sm">LIVE FEED</span>
-                </h2>
-                <div className="flex gap-2 text-xs font-mono text-gray-500">
-                    <span>ACTIVE_TASKS: <span className="text-white">{tasks.length}</span></span>
+        <div className="h-full flex flex-col p-6 space-y-6">
+            <header className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="space-y-1">
+                    <h2 className="text-2xl font-black font-mono tracking-widest text-white flex items-center gap-3">
+                        RADAR <span className="text-cyber-primary text-sm bg-cyber-primary/10 px-2 py-0.5 rounded animate-pulse">LIVE FEED</span>
+                    </h2>
+                    <p className="text-xs text-gray-500 font-mono">SYSTEM TELEMETRY & TASK ORCHESTRATION</p>
+                </div>
+                <div className="flex gap-4">
+                    <StatCard icon={<Cpu size={16} />} label="GOROUTINES" value={metrics.activeGoroutines} color="text-cyber-primary" />
+                    <StatCard icon={<CheckCircle2 size={16} />} label="COMPLETED" value={metrics.tasksCompleted} color="text-green-400" />
+                    <StatCard icon={<AlertCircle size={16} />} label="ERRORS" value={metrics.errors} color="text-red-400" />
+                </div>
+            </header>
+
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
+                {/* Visualizer Column */}
+                <div className="lg:col-span-2 flex flex-col gap-6">
+                    {/* Activity Chart */}
+                    <div className="flex-1 bg-black/40 border border-white/5 rounded-lg p-4 flex flex-col">
+                        <h3 className="text-xs font-bold text-gray-400 mb-4 flex items-center gap-2">
+                            <Activity size={14} /> THREAD ACTIVITY
+                        </h3>
+                        <div className="flex-1 min-h-[200px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={history}>
+                                    <defs>
+                                        <linearGradient id="colorGro" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#00f2ff" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#00f2ff" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="time" stroke="#444" fontSize={10} tickLine={false} />
+                                    <YAxis stroke="#444" fontSize={10} tickLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
+                                        itemStyle={{ color: '#00f2ff' }}
+                                    />
+                                    <Area type="monotone" dataKey="goroutines" stroke="#00f2ff" fillOpacity={1} fill="url(#colorGro)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Task Stream */}
+                <div className="bg-black/40 border border-white/5 rounded-lg p-4 flex flex-col overflow-hidden">
+                    <h3 className="text-xs font-bold text-gray-400 mb-4 flex items-center gap-2">
+                        <Server size={14} /> ACTIVE TASKS ({tasks.length})
+                    </h3>
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                        {tasks.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center opacity-30">
+                                <Activity size={48} className="mb-2" />
+                                <span className="text-xs font-mono">AWAITING_TASKS</span>
+                            </div>
+                        ) : (
+                            tasks.map(task => (
+                                <div key={task.id} className="bg-white/5 p-3 rounded border-l-2 border-cyber-primary flex justify-between items-center group hover:bg-white/10 transition-all">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-gray-200">{task.name}</span>
+                                        <span className="text-[10px] text-gray-500 font-mono">{task.id}</span>
+                                    </div>
+                                    <span className="text-cyber-primary font-mono text-xs font-bold">
+                                        {formatDuration(task.startedAt)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
-
-            {tasks.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-600 space-y-4">
-                    <div className="w-16 h-16 rounded-full border border-gray-700 flex items-center justify-center animate-pulse">
-                        <div className="w-12 h-12 rounded-full bg-gray-800/50"></div>
-                    </div>
-                    <div className="font-mono text-sm italic tracking-widest opacity-50">NO_SIGNAL_FOUND</div>
-                </div>
-            ) : (
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                    {tasks.map(task => (
-                        <div key={task.id} className="group bg-black/40 border border-white/5 p-3 rounded flex items-center justify-between font-mono text-sm hover:bg-white/5 hover:border-white/10 transition-all">
-                            <div className="flex items-center gap-4">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wider border ${getBadgeStyle(task.type)} uppercase`}>
-                                    {task.type.includes('Image') ? 'IMG_PROCESS' : task.type.replace('-Bound', '')}
-                                </span>
-                                <span className="text-gray-300 group-hover:text-white transition-colors">{task.id}</span>
-                            </div>
-                            <span className="text-cyber-primary font-bold">{formatDuration(task.startedAt)}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     );
 }
+
+const StatCard = ({ icon, label, value, color }: any) => (
+    <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded border border-white/5">
+        <div className={`p-2 rounded bg-black/50 ${color}`}>{icon}</div>
+        <div>
+            <div className="text-[10px] text-gray-500 font-bold tracking-wider">{label}</div>
+            <div className={`text-lg font-mono font-bold ${color}`}>{value}</div>
+        </div>
+    </div>
+);
