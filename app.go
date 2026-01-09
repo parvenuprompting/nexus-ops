@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	nativeRuntime "runtime"
 	"time"
 
@@ -60,7 +59,7 @@ func (a *App) SelectDirectory() string {
 		Title: "Select Images Folder",
 	})
 	if err != nil {
-		fmt.Printf("Error selecting directory: %v\n", err)
+		runtime.LogErrorf(a.ctx, "Error selecting directory: %v", err)
 		return ""
 	}
 	return path
@@ -79,7 +78,8 @@ func (a *App) StartProcessing(dir string) int {
 	// Start returns (scanFoundChan, workersDoneChan, err)
 	scanFoundChan, workersDoneChan, err := processor.Start(a.state.Ctx, dir, workerCount)
 	if err != nil {
-		runtime.EventsEmit(a.ctx, "processing:error", err.Error())
+		appErr := sys.NewError("ERR_SCAN_FAILED", err.Error())
+		runtime.EventsEmit(a.ctx, "processing:error", appErr)
 		return 0
 	}
 

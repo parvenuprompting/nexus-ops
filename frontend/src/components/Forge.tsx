@@ -9,14 +9,20 @@ declare global {
     }
 }
 
+// Define AppError interface
+interface AppError {
+    code: string;
+    message: string;
+}
+
 export default function Forge() {
     const [dir, setDir] = useState<string>('');
     const [status, setStatus] = useState<'idle' | 'scanning' | 'processing' | 'complete'>('idle');
     const [stats, setStats] = useState({ total: 0, processed: 0 });
 
     useEffect(() => {
-        const unsubError = EventsOn('processing:error', (err: string) => {
-            alert('Error: ' + err);
+        const unsubError = EventsOn('processing:error', (err: AppError) => {
+            alert(`[${err.code}] ${err.message}`);
             setStatus('idle');
         });
 
