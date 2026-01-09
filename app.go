@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-
+	"fmt"
 	"nexus-ops/internal/services"
 	"nexus-ops/internal/sys"
 
@@ -89,4 +89,14 @@ func (a *App) GetMetrics() sys.MetricsDTO {
 // GetActiveTasks returns the current active tasks
 func (a *App) GetActiveTasks() []*sys.Task {
 	return a.state.SnapshotActiveTasks()
+}
+
+// RunCommand executes a terminal command
+func (a *App) RunCommand(cmd string) string {
+	output, err := a.opsService.RunTerminalCommand(a.ctx, cmd)
+	if err != nil {
+		// Return output + error message if command failed (e.g. stderr)
+		return fmt.Sprintf("%s\nError: %s", output, err.Error())
+	}
+	return output
 }

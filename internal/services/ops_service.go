@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
 	nativeRuntime "runtime"
 	"time"
 
@@ -68,4 +70,24 @@ func (s *OpsService) StartProcessing(ctx context.Context, dir string) error {
 	}()
 
 	return nil
+}
+
+// RunTerminalCommand executes a shell command and returns output
+func (s *OpsService) RunTerminalCommand(ctx context.Context, cmdStr string) (string, error) {
+	// Security Note: This is a basic implementation.
+	// In production, you'd want to validate inputs or use a PTY library.
+	var cmd *exec.Cmd
+
+	if nativeRuntime.GOOS == "windows" {
+		cmd = exec.CommandContext(ctx, "cmd", "/C", cmdStr)
+	} else {
+		cmd = exec.CommandContext(ctx, "sh", "-c", cmdStr)
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("command failed: %w", err)
+	}
+
+	return string(output), nil
 }

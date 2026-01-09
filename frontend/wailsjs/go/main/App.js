@@ -10,6 +10,10 @@ export function GetMetrics() {
   return window['go']['main']['App']['GetMetrics']();
 }
 
+export function RunCommand(arg1) {
+  return window['go']['main']['App']['RunCommand'](arg1);
+}
+
 export function SelectDirectory() {
   return window['go']['main']['App']['SelectDirectory']();
 }

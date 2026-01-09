@@ -6,6 +6,8 @@ export function GetActiveTasks():Promise<Array<sys.Task>>;
 
 export function GetMetrics():Promise<sys.MetricsDTO>;
 
+export function RunCommand(arg1:string):Promise<string>;
+
 export function SelectDirectory():Promise<string>;
 
 export function StartProcessing(arg1:string):Promise<number>;

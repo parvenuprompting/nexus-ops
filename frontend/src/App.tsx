@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar';
 import Forge from './components/Forge';
 import Radar from './components/Radar';
 
+import Terminal from './components/Terminal';
+
 function App() {
     const [activeTab, setActiveTab] = useState('forge');
 
@@ -24,8 +26,9 @@ function App() {
                     <div className="relative z-10 h-full">
                         {activeTab === 'forge' && <Forge />}
                         {activeTab === 'radar' && <Radar />}
+                        {activeTab === 'terminal' && <Terminal />}
 
-                        {(activeTab !== 'forge' && activeTab !== 'radar') && (
+                        {(activeTab !== 'forge' && activeTab !== 'radar' && activeTab !== 'terminal') && (
                             <div className="glass-panel h-full flex items-center justify-center flex-col text-gray-500">
                                 <div className="text-6xl mb-4 opacity-50">🚧</div>
                                 <h3 className="text-xl font-bold font-mono uppercase tracking-widest mb-2">{activeTab} Module</h3>
