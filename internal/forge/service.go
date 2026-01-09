@@ -98,6 +98,7 @@ func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan 
 			taskID := fmt.Sprintf("img-%d-%s", workerID, filepath.Base(path))
 			task := &sys.Task{
 				ID:        taskID,
+				Name:      filepath.Base(path),
 				Type:      sys.TaskTypeImageResize,
 				StartedAt: time.Now(),
 				Status:    "Processing",

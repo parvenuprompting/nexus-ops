@@ -56,7 +56,7 @@ func main() {
 		Windows: &windows.Options{
 			WebviewIsTransparent: true,
 			WindowIsTranslucent:  true,
-			Theme:                windows.SystemDefault,
+			Theme:                windows.Dark,
 			// Custom backdrop?
 			BackdropType: windows.Mica, // For that nice blur if supported
 		},
