@@ -20,4 +20,4 @@ export function SelectDirectory():Promise<string>;
 
 export function SiphonCheckHTTP(arg1:string):Promise<main.SiphonResult>;
 
-export function StartProcessing(arg1:string):Promise<number>;
+export function StartProcessing(arg1:string,arg2:sys.ForgeSettings):Promise<number>;

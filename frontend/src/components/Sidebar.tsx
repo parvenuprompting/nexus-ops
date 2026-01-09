@@ -44,12 +44,14 @@ export default function Sidebar({ activeTab, onTabChange }: Props) {
                 ))}
             </nav>
 
-            {/* Footer with version */}
-            <div className="mt-auto text-center">
-                <p className="text-[10px] font-mono text-gray-600">v1.2.0-wails</p>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_5px_#22c55e]"></div>
-                    <span className="text-[10px] text-gray-500 tracking-wider">ONLINE</span>
+            {/* Footer */}
+            <div className="mt-auto pt-6 border-t border-white/10 text-center">
+                <div className="text-[10px] text-gray-500 font-mono mb-2">
+                    © 2026 Tiëndo Welles
+                </div>
+                <div className="flex items-center justify-center gap-2 text-[10px] uppercase font-bold tracking-widest text-green-500">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+                    ONLINE
                 </div>
             </div>
         </div>

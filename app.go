@@ -71,8 +71,8 @@ func (a *App) SelectDirectory() string {
 
 // StartProcessing initiates the forge processor
 // Returns 0 immediately, events will track progress
-func (a *App) StartProcessing(dir string) int {
-	err := a.opsService.StartProcessing(a.ctx, dir)
+func (a *App) StartProcessing(dir string, settings sys.ForgeSettings) int {
+	err := a.opsService.StartProcessing(a.ctx, dir, settings)
 	if err != nil {
 		appErr := sys.NewError("ERR_SCAN_FAILED", err.Error())
 		runtime.EventsEmit(a.ctx, "processing:error", appErr)

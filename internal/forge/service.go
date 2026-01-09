@@ -37,8 +37,9 @@ func NewProcessor(state *sys.AppState) *Processor {
 // Returns:
 // - scanFound: channel that receives total count when scanning is done
 // - workersDone: channel that closes when all workers are finished
+// - workersDone: channel that closes when all workers are finished
 // - error: if immediate setup fails
-func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int) (<-chan int, <-chan struct{}, error) {
+func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int, settings sys.ForgeSettings) (<-chan int, <-chan struct{}, error) {
 	// 1. Prepare Output Directory
 	outputDir := filepath.Join(inputDir, "output")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -53,6 +54,11 @@ func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int)
 
 	// 3. Start Streaming Scanner
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("PANIC in Scanner: %v\n", r)
+			}
+		}()
 		defer close(jobs)
 		total, err := scanImagesStreaming(ctx, inputDir, jobs)
 		if err != nil {
@@ -66,7 +72,7 @@ func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int)
 	var wg sync.WaitGroup
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go p.worker(ctx, &wg, jobs, outputDir, i)
+		go p.worker(ctx, &wg, jobs, outputDir, i, settings)
 	}
 
 	// 5. Monitor Workers Completion
@@ -78,12 +84,19 @@ func (p *Processor) Start(ctx context.Context, inputDir string, workerCount int)
 	return scanFound, workersDone, nil
 }
 
-func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan string, outputDir string, workerID int) {
+func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan string, outputDir string, workerID int, settings sys.ForgeSettings) {
 	defer wg.Done()
 
 	// Register worker
 	p.State.Metrics.ActiveGoroutines.Add(1)
-	defer p.State.Metrics.ActiveGoroutines.Add(-1)
+
+	defer func() {
+		p.State.Metrics.ActiveGoroutines.Add(-1)
+		if r := recover(); r != nil {
+			fmt.Printf("PANIC in Worker %d: %v\n", workerID, r)
+			p.State.Metrics.Errors.Add(1)
+		}
+	}()
 
 	for {
 		select {
@@ -105,7 +118,7 @@ func (p *Processor) worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan 
 			}
 			p.State.AddActiveTask(task)
 
-			err := p.processImageSafe(path, outputDir)
+			err := p.processImageSafe(path, outputDir, settings)
 
 			if err != nil {
 				p.State.Metrics.Errors.Add(1)
@@ -147,7 +160,7 @@ func scanImagesStreaming(ctx context.Context, dir string, jobs chan<- string) (i
 }
 
 // processImageSafe with Memory Semaphore
-func (p *Processor) processImageSafe(srcPath, outDir string) error {
+func (p *Processor) processImageSafe(srcPath, outDir string, settings sys.ForgeSettings) error {
 	// Acquire semaphore
 	p.decodeSem <- struct{}{}
 	defer func() { <-p.decodeSem }()
@@ -159,46 +172,82 @@ func (p *Processor) processImageSafe(srcPath, outDir string) error {
 	}
 	defer file.Close()
 
-	// Decode Config first (Memory Safety check - optional step but good practice)
-	// For now we trust the semaphore to limit concurrent loading.
-
 	// Decode
-	img, format, err := image.Decode(file)
+	img, _, err := image.Decode(file)
 	if err != nil {
 		return err
 	}
 
-	// Release semaphore early?
-	// No, we hold it during resize too because resize creates a new buffer.
-	// Actually, we could release after Decode if we want to allow resizing in parallel but limit decoding.
-	// But `image.Decode` produces the big buffer. `draw.ApproxBiLinear.Scale` produces another one.
-	// We'll be conservative and hold it.
-
-	// Resize (50%)
+	// Calculate Target Dimensions (Crop vs Resize)
 	bounds := img.Bounds()
-	newW := bounds.Dx() / 2
-	newH := bounds.Dy() / 2
-	rect := image.Rect(0, 0, newW, newH)
+	curW, curH := bounds.Dx(), bounds.Dy()
 
-	dst := image.NewRGBA(rect)
+	// Default: Keep original resolution if no resize logic is specified?
+	// The prompt implies "resizing" but focus is on Aspect Ratio.
+	// We will implement CENTER CROP to the aspect ratio, maintaining MAX possible size.
 
-	draw.ApproxBiLinear.Scale(dst, rect, img, bounds, draw.Over, nil)
+	targetW, targetH := curW, curH
+
+	if settings.AspectRatio != "" && settings.AspectRatio != "original" {
+		parts := strings.Split(settings.AspectRatio, ":")
+		if len(parts) == 2 {
+			var wRatio, hRatio float64
+			fmt.Sscanf(parts[0], "%f", &wRatio)
+			fmt.Sscanf(parts[1], "%f", &hRatio)
+
+			if wRatio > 0 && hRatio > 0 {
+				ratio := wRatio / hRatio
+				imgRatio := float64(curW) / float64(curH)
+
+				if imgRatio > ratio {
+					// Image is wider than target: Crop Width
+					targetW = int(float64(curH) * ratio)
+				} else {
+					// Image is taller than target: Crop Height
+					targetH = int(float64(curW) / ratio)
+				}
+			}
+		}
+	}
+
+	// Center Crop Logic
+	x0 := (curW - targetW) / 2
+	y0 := (curH - targetH) / 2
+	x1 := x0 + targetW
+	y1 := y0 + targetH
+
+	cropRect := image.Rect(x0, y0, x1, y1)
+
+	// Create destination image
+	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+
+	// Draw cropped area
+	draw.Draw(dst, dst.Bounds(), img, cropRect.Min, draw.Src)
 
 	// Save
 	outName := filepath.Base(srcPath)
-	outPath := filepath.Join(outDir, outName)
+	// Handle format change
+	ext := filepath.Ext(outName)
+	nameWithoutExt := strings.TrimSuffix(outName, ext)
+
+	saveFormat := settings.Format
+	if saveFormat == "" {
+		saveFormat = "jpg" // Default
+	}
+
+	outPath := filepath.Join(outDir, nameWithoutExt+"."+saveFormat)
 	outFile, err := os.Create(outPath)
 	if err != nil {
 		return err
 	}
 	defer outFile.Close()
 
-	switch format {
-	case "jpeg":
-		return jpeg.Encode(outFile, dst, &jpeg.Options{Quality: 80})
+	switch strings.ToLower(saveFormat) {
+	case "jpeg", "jpg":
+		return jpeg.Encode(outFile, dst, &jpeg.Options{Quality: 90})
 	case "png":
 		return png.Encode(outFile, dst)
-	default:
-		return fmt.Errorf("unsupported format for saving: %s", format)
+	default: // Default to jpg
+		return jpeg.Encode(outFile, dst, &jpeg.Options{Quality: 90})
 	}
 }

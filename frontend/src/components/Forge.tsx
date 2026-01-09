@@ -10,10 +10,13 @@ declare global {
     }
 }
 
+type ProcessingStatus = 'idle' | 'scanning' | 'processing' | 'complete';
+
 export default function Forge() {
-    const [dir, setDir] = useState<string>('');
-    const [status, setStatus] = useState<'idle' | 'scanning' | 'processing' | 'complete'>('idle');
+    const [selectedDir, setSelectedDir] = useState<string>('');
+    const [status, setStatus] = useState<ProcessingStatus>('idle');
     const [stats, setStats] = useState({ total: 0, processed: 0 });
+    const [settings, setSettings] = useState({ format: 'jpg', aspectRatio: 'original' });
 
     useEffect(() => {
         const unsubError = EventsOn('processing:error', (err: AppError) => {
@@ -40,13 +43,13 @@ export default function Forge() {
 
     const handleSelect = async () => {
         const path = await SelectDirectory();
-        if (path) setDir(path);
+        if (path) setSelectedDir(path);
     };
 
     const handleStart = async () => {
-        if (!dir) return;
-        setStatus('scanning');
-        await StartProcessing(dir);
+        if (!selectedDir) return;
+        setStatus('scanning'); // Keep scanning status for initial file count
+        await StartProcessing(selectedDir, settings);
     };
 
     return (
@@ -66,25 +69,60 @@ export default function Forge() {
                         onClick={handleSelect}
                         className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-300 font-medium rounded transition-all active:scale-[0.98] group"
                     >
-                        {dir ? (
-                            <span className="text-cyber-primary font-mono text-sm break-all">{dir}</span>
+                        {selectedDir ? (
+                            <span className="text-cyber-primary font-mono text-sm break-all">{selectedDir}</span>
                         ) : (
                             <span className="group-hover:text-white transition-colors">Select Input Folder</span>
                         )}
                     </button>
 
-                    {/* Status Text */}
-                    <div className="text-center space-y-1">
-                        {!dir && <p className="text-sm text-gray-500 italic">No directory selected</p>}
+                    {/* Active Task (Simple) */}
+                    <div className="text-center opacity-50 mb-8 font-mono text-sm min-h-[20px]">
+                        {selectedDir || <i>No directory selected</i>}
+                    </div>
+
+                    {/* Settings UI */}
+                    <div className="mb-8 space-y-4">
+                        {/* Format Selection */}
+                        <div className="flex justify-center gap-4">
+                            {['jpg', 'png'].map(fmt => (
+                                <button
+                                    key={fmt}
+                                    onClick={() => setSettings(s => ({ ...s, format: fmt }))}
+                                    className={`px-4 py-2 rounded font-bold uppercase tracking-wider text-xs border transition-all ${settings.format === fmt
+                                            ? 'bg-cyber-primary text-black border-cyber-primary shadow-[0_0_10px_rgba(0,242,255,0.3)]'
+                                            : 'bg-transparent text-gray-500 border-white/10 hover:border-white/30 hover:text-gray-300'
+                                        }`}
+                                >
+                                    .{fmt}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Aspect Ratio Grid */}
+                        <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+                            {['original', '16:9', '9:16', '1:1', '3:2', '2:3'].map(ratio => (
+                                <button
+                                    key={ratio}
+                                    onClick={() => setSettings(s => ({ ...s, aspectRatio: ratio }))}
+                                    className={`px-2 py-2 rounded font-mono text-xs border transition-all ${settings.aspectRatio === ratio
+                                            ? 'bg-white/10 text-white border-white/40 shadow-inner'
+                                            : 'bg-transparent text-gray-600 border-white/5 hover:bg-white/5 hover:text-gray-400'
+                                        }`}
+                                >
+                                    {ratio === 'original' ? 'ORIG' : ratio}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Action Button */}
                     <button
                         onClick={handleStart}
-                        disabled={!dir || status === 'scanning' || status === 'processing'}
+                        disabled={!selectedDir || status === 'scanning' || status === 'processing'}
                         className={`
                             w-full py-3 rounded text-sm font-bold tracking-widest uppercase transition-all duration-300 border
-                            ${!dir || status !== 'idle' && status !== 'complete'
+                            ${!selectedDir || status !== 'idle' && status !== 'complete'
                                 ? 'bg-black/20 text-gray-700 border-transparent cursor-not-allowed'
                                 : 'bg-cyber-primary/10 text-cyber-primary border-cyber-primary/50 hover:bg-cyber-primary hover:text-black shadow-[0_0_20px_rgba(0,242,255,0.1)] hover:shadow-[0_0_20px_rgba(0,242,255,0.4)]'
                             }

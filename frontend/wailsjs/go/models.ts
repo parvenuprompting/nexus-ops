@@ -40,6 +40,20 @@ export namespace services {
 
 export namespace sys {
 	
+	export class ForgeSettings {
+	    format: string;
+	    aspectRatio: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ForgeSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.format = source["format"];
+	        this.aspectRatio = source["aspectRatio"];
+	    }
+	}
 	export class MetricsDTO {
 	    activeGoroutines: number;
 	    tasksCompleted: number;

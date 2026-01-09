@@ -34,6 +34,6 @@ export function SiphonCheckHTTP(arg1) {
   return window['go']['main']['App']['SiphonCheckHTTP'](arg1);
 }
 
-export function StartProcessing(arg1) {
-  return window['go']['main']['App']['StartProcessing'](arg1);
+export function StartProcessing(arg1, arg2) {
+  return window['go']['main']['App']['StartProcessing'](arg1, arg2);
 }
